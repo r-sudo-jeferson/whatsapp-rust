@@ -256,6 +256,8 @@ pub(crate) struct OfflineSyncMetrics {
 }
 
 pub struct Client {
+    pub(crate) inbound_journal:
+        std::sync::OnceLock<Arc<dyn crate::inbound_journal::InboundJournal>>,
     pub(crate) runtime: Arc<dyn Runtime>,
     pub(crate) core: wacore::client::CoreClient,
 
@@ -523,6 +525,21 @@ impl Client {
         self.skip_history_sync.store(enabled, Ordering::Relaxed);
     }
 
+    /// Install the durable boundary before starting a connection. It cannot be
+    /// removed or replaced while messages are in flight.
+    pub fn set_inbound_journal(
+        &self,
+        journal: Arc<dyn crate::inbound_journal::InboundJournal>,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !self.is_running.load(Ordering::Acquire),
+            "client already running"
+        );
+        self.inbound_journal
+            .set(journal)
+            .map_err(|_| anyhow::anyhow!("inbound journal already installed"))
+    }
+
     /// Public entry point for processing [`MajorSyncTask`] from the sync channel.
     pub async fn process_sync_task(self: &Arc<Self>, task: crate::sync_task::MajorSyncTask) {
         match task {
@@ -591,6 +608,7 @@ impl Client {
         let (tx, rx) = async_channel::bounded(32);
 
         let this = Self {
+            inbound_journal: std::sync::OnceLock::new(),
             runtime: runtime.clone(),
             core,
             persistence_manager: persistence_manager.clone(),
@@ -1563,7 +1581,7 @@ impl Client {
     }
 
     /// Build and send an <ack/> node corresponding to the given stanza.
-    async fn send_ack_for(&self, node: &Node) -> Result<(), ClientError> {
+    pub(crate) async fn send_ack_for(&self, node: &Node) -> Result<(), ClientError> {
         if self.expected_disconnect.load(Ordering::Relaxed) {
             return Ok(());
         }
@@ -5558,3 +5576,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod durable_tests;
