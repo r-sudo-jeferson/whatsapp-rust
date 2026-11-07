@@ -15,6 +15,7 @@ pub mod cache_store;
 pub(crate) mod sender_key_device_cache;
 pub use cache_store::CacheStore;
 pub mod http;
+pub mod inbound_journal;
 pub mod types;
 
 pub mod client;

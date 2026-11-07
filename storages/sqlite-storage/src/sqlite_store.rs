@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
-use diesel::sql_query;
 use diesel::sqlite::SqliteConnection;
 use diesel::upsert::excluded;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
@@ -451,16 +450,9 @@ impl SqliteStore {
 
             use diesel::sql_types::Integer;
 
-            #[derive(QueryableByName)]
-            struct LastInsertedId {
-                #[diesel(sql_type = Integer)]
-                last_insert_rowid: i32,
-            }
-
-            let device_id: i32 = sql_query("SELECT last_insert_rowid() as last_insert_rowid")
-                .get_result::<LastInsertedId>(&mut conn)
-                .map_err(|e| StoreError::Database(e.to_string()))?
-                .last_insert_rowid;
+            let device_id: i32 = diesel::select(diesel::dsl::sql::<Integer>("last_insert_rowid()"))
+                .get_result(&mut conn)
+                .map_err(|e| StoreError::Database(e.to_string()))?;
 
             Ok(device_id)
         })

@@ -413,15 +413,7 @@ impl Node {
     pub fn get_optional_child_by_tag<'a>(&'a self, tags: &[&str]) -> Option<&'a Node> {
         let mut current_node = self;
         for &tag in tags {
-            if let Some(children) = current_node.children() {
-                if let Some(found) = children.iter().find(|c| c.tag == tag) {
-                    current_node = found;
-                } else {
-                    return None;
-                }
-            } else {
-                return None;
-            }
+            current_node = current_node.children()?.iter().find(|c| c.tag == tag)?;
         }
         Some(current_node)
     }
@@ -474,15 +466,7 @@ impl<'a> NodeRef<'a> {
     pub fn get_optional_child_by_tag(&self, tags: &[&str]) -> Option<&NodeRef<'a>> {
         let mut current_node = self;
         for &tag in tags {
-            if let Some(children) = current_node.children() {
-                if let Some(found) = children.iter().find(|c| c.tag == tag) {
-                    current_node = found;
-                } else {
-                    return None;
-                }
-            } else {
-                return None;
-            }
+            current_node = current_node.children()?.iter().find(|c| c.tag == tag)?;
         }
         Some(current_node)
     }

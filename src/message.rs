@@ -47,11 +47,13 @@ impl Client {
         // Send delivery receipt immediately in the background.
         let client_clone = self.clone();
         let info_for_receipt = info.clone();
-        self.runtime
-            .spawn(Box::pin(async move {
-                client_clone.send_delivery_receipt(&info_for_receipt).await;
-            }))
-            .detach();
+        if self.inbound_journal.get().is_none() {
+            self.runtime
+                .spawn(Box::pin(async move {
+                    client_clone.send_delivery_receipt(&info_for_receipt).await;
+                }))
+                .detach();
+        }
 
         self.core
             .event_bus
@@ -73,6 +75,12 @@ impl Client {
         if let Some(wacore_binary::node::NodeContent::Bytes(bytes)) = &plaintext_node.content {
             match wa::Message::decode(bytes.as_slice()) {
                 Ok(msg) => {
+                    if let Some(journal) = self.inbound_journal.get()
+                        && journal.decoded(info, &msg).await.is_err()
+                    {
+                        warn!("Decoded source could not be retained");
+                        return;
+                    }
                     log::info!(
                         "[msg:{}] Received newsletter plaintext message from {}",
                         info.id,
@@ -1152,6 +1160,9 @@ impl Client {
         info: &MessageInfo,
     ) -> Result<(), anyhow::Error> {
         let original_msg = wacore::messages::decode_plaintext(padded_plaintext, padding_version)?;
+        if let Some(journal) = self.inbound_journal.get() {
+            journal.decoded(info, &original_msg).await?;
+        }
         log::debug!(
             "[msg:{}] Successfully decrypted message from {}: type={} [batch path]",
             info.id,

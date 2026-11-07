@@ -26,7 +26,11 @@ impl StanzaHandler for MessageHandler {
         "message"
     }
 
-    async fn handle(&self, client: Arc<Client>, node: Arc<Node>, _cancelled: &mut bool) -> bool {
+    async fn handle(&self, client: Arc<Client>, node: Arc<Node>, cancelled: &mut bool) -> bool {
+        if client.inbound_journal.get().is_some() {
+            // The per-chat worker, not this in-memory queue, owns the ACK.
+            *cancelled = true;
+        }
         // Extract the chat ID to serialize processing for this chat.
         // This prevents race conditions where a later message is processed before
         // the PreKey message that establishes the session.
@@ -74,7 +78,30 @@ impl StanzaHandler for MessageHandler {
                     .spawn(Box::pin(async move {
                         while let Ok(msg_node) = rx.recv().await {
                             let client = client_for_worker.clone();
-                            Box::pin(client.handle_incoming_message(msg_node)).await;
+                            if let Some(journal) = client.inbound_journal.get() {
+                                let info = client.parse_message_info(&msg_node).await.ok();
+                                match journal.begin(&msg_node, info.as_ref()).await {
+                                    Ok(already_complete) => {
+                                        if !already_complete {
+                                            Box::pin(client.clone().handle_incoming_message(msg_node.clone())).await;
+                                        }
+                                        match journal.complete(&msg_node).await {
+                                            Ok(decoded) => {
+                                                if decoded && let Some(info) = info.as_ref() {
+                                                    client.send_delivery_receipt(info).await;
+                                                }
+                                                if client.send_ack_for(&msg_node).await.is_err() {
+                                                    warn!("Durable inbound ACK transport failed");
+                                                }
+                                            }
+                                            Err(_) => warn!("Inbound journal completion failed; source not acknowledged"),
+                                        }
+                                    }
+                                    Err(_) => warn!("Inbound journal write failed; source not acknowledged"),
+                                }
+                            } else {
+                                Box::pin(client.handle_incoming_message(msg_node)).await;
+                            }
                         }
                     }))
                     .detach();
