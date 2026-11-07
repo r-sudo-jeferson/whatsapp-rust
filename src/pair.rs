@@ -266,7 +266,7 @@ async fn handle_pair_success(client: &Arc<Client>, request_node: &Node, success_
             }
 
             if !business_name.is_empty() {
-                info!("✅ Setting push_name during pairing: '{}'", &business_name);
+                info!("✅ Setting push_name during pairing: '{}'", business_name);
                 client
                     .persistence_manager
                     .process_command(crate::store::commands::DeviceCommand::SetPushName(

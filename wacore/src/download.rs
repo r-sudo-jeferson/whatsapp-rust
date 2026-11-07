@@ -409,7 +409,7 @@ impl DownloadUtils {
                 processable_len -= processable_len % BLOCK;
                 if processable_len >= BLOCK {
                     hmac.update(&tail[..processable_len]);
-                    for cblock in tail[..processable_len].chunks_exact(BLOCK) {
+                    for cblock in tail[..processable_len].as_chunks::<BLOCK>().0 {
                         let (decrypted, cblock_arr) =
                             decrypt_cbc_block(cblock, &cipher, &prev_block)?;
                         writer.write_all(&decrypted)?;
@@ -435,7 +435,7 @@ impl DownloadUtils {
         }
 
         let mut final_plain = Vec::with_capacity(final_ciphertext.len());
-        for cblock in final_ciphertext.chunks_exact(BLOCK) {
+        for cblock in final_ciphertext.as_chunks::<BLOCK>().0 {
             let (decrypted, cblock_arr) = decrypt_cbc_block(cblock, &cipher, &prev_block)?;
             final_plain.extend_from_slice(&decrypted);
             prev_block = cblock_arr;

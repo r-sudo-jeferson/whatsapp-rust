@@ -82,8 +82,10 @@ fn perform_pointwise_with_overflow(base: &mut [u8], input: &[u8], subtract: bool
     // native-endian u16). The actual endianness doesn't matter for LTHash correctness —
     // what matters is that SIMD and scalar paths agree.
     for (base_pair, input_pair) in base_remaining
-        .chunks_exact_mut(2)
-        .zip(input_remaining.chunks_exact(2))
+        .as_chunks_mut::<2>()
+        .0
+        .iter_mut()
+        .zip(input_remaining.as_chunks::<2>().0)
     {
         let x = u16::from_ne_bytes([base_pair[0], base_pair[1]]);
         let y = u16::from_ne_bytes([input_pair[0], input_pair[1]]);

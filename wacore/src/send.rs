@@ -519,7 +519,7 @@ where
                 None => {
                     log::warn!(
                         "No pre-key bundle returned for device {}. This device will be skipped for encryption.",
-                        &signal_address
+                        signal_address
                     );
                 }
             }
@@ -576,7 +576,7 @@ where
             Err(e) => {
                 log::warn!(
                     "Failed to encrypt for device {}: {}. Skipping.",
-                    &signal_address,
+                    signal_address,
                     e
                 );
             }

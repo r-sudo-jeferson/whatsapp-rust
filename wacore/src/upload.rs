@@ -158,8 +158,8 @@ impl MediaEncryptor {
     /// Encrypt one or more complete blocks from `data` and emit each.
     fn encrypt_and_emit(&mut self, data: &[u8], emit: &mut impl FnMut(&[u8; BLOCK])) {
         debug_assert!(data.len().is_multiple_of(BLOCK));
-        for chunk in data.chunks_exact(BLOCK) {
-            self.cbc_encrypt(chunk.try_into().unwrap());
+        for chunk in data.as_chunks::<BLOCK>().0 {
+            self.cbc_encrypt(chunk);
             emit(&self.prev_block);
             self.hmac.update(&self.prev_block);
             self.sha256_enc.update(&self.prev_block);
