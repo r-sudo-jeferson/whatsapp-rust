@@ -5579,3 +5579,6 @@ mod tests {
 
 #[cfg(test)]
 mod durable_tests;
+
+#[cfg(test)]
+mod event_custody_tests;
